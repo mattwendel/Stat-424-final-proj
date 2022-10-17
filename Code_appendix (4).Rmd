@@ -1,0 +1,266 @@
+---
+title: "Discussion and Analysis"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(ggpubr)
+```
+
+
+```{r,results='hide', echo = 'FALSE'}
+## Loading and manipulating df
+lemonadedf<-read.csv("Data.csv")
+
+lemonadedf<-lemonadedf%>%
+  mutate(recipe = case_when(lemon_amount == .25  & sugar_amount !=	0.5000000 & lemon_type == "Fresh" ~ 1, lemon_amount == .25  & sugar_amount !=	0.5000000 & lemon_type == "Concentrate" ~ 2, lemon_amount == .25  & sugar_amount ==	0.5000000 & lemon_type == "Fresh" ~ 3,lemon_amount == .25  & sugar_amount ==	0.5000000 & lemon_type == "Concentrate" ~ 4,lemon_amount == .5  & sugar_amount ==	0.5000000 & lemon_type == "Fresh" ~ 5,lemon_amount == .5  & sugar_amount ==	0.5000000 & lemon_type == "Concentrate" ~ 6,lemon_amount == 0.5  & sugar_amount != 0.5000000 & lemon_type == "Concentrate" ~ 8))
+
+lemonadedf$recipe[is.na(lemonadedf$recipe)] <- 7
+
+
+#prepare anova
+lemonadedf$lemon_type <- as.factor(lemonadedf$lemon_type)
+
+lemonadedf$sugar_amount <- as.factor(lemonadedf$sugar_amount)
+
+lemonadedf$lemon_amount <- as.factor(lemonadedf$lemon_amount)
+
+lemonadedf$Tester <- as.factor(lemonadedf$Tester)
+
+
+```
+
+### Summary Data Plots
+
+```{r,echo = 'FALSE'}
+
+#Plots of all scores 
+sweetplot<-ggplot(lemonadedf, aes(recipe,Sweetness, color= factor(Tester)))+
+  geom_point()+
+  scale_x_discrete(limits=c("1","2","3","4","5","6","7","8"))+
+  ylab("Sweetness Score (0-20)")+
+  labs(fill="Tester")+
+  scale_color_discrete(name = "Tester")+
+  ggtitle("Sweetness Scores vs. Recipe")
+
+
+sourplot<-ggplot(lemonadedf, aes(recipe,Sourness, color= factor(Tester)))+
+  geom_point()+
+  scale_x_discrete(limits=c("1","2","3","4","5","6","7","8"))+
+  ylab("Sourness Score (0-20)")+
+  labs(fill="Tester")+
+  scale_color_discrete(name = "Tester")+
+  ggtitle("Sourness Scores vs. Recipe")
+
+tastyplot<-ggplot(lemonadedf, aes(recipe,Tastiness, color= factor(Tester)))+
+  geom_point()+
+  scale_x_discrete(limits=c("1","2","3","4","5","6","7","8"))+
+  ylab("Tastiness Score (0-20)")+
+  labs(fill="Tester")+
+  scale_color_discrete(name = "Tester")+
+  ggtitle(" Tastiness Scores vs. Recipe")
+
+totalplot<-ggplot(lemonadedf, aes(recipe,total_score, color= factor(Tester)))+
+  geom_point()+
+  scale_x_discrete(limits=c("1","2","3","4","5","6","7","8"))+
+  ylab("Total Score (0-60)")+
+  labs(fill="Tester")+
+  scale_color_discrete(name = "Tester")+
+  ggtitle("Total Score vs. Recipe")
+
+
+
+ggarrange(sweetplot, sourplot, tastyplot, totalplot,  widths = 1,
+  heights = 1,
+  ncol = 2,nrow=2,common.legend = TRUE, legend="bottom"
+)
+
+```
+Discussion of Data Summary:
+
+The above plots, in general, show that the scores of each tester appear to differ from one another. More specifically, the two score replicates within each tester appear to be grouped more closely than the scores of other testers. For example, recipe 3 on the Total Score versus Recipe plot shows that tester 3 scored the recipe around 40-45, tester 2 scored near 20, and tester three fell near the middle of the other testers scores. The replicates within each tester appear to all vary by less than 5, but the scores of tester 3 and 1 differ by ~20. This phenomenon indicated that blocking by tester within our factorial design might be necessary in order to offset the impact of variance associated with the innate “taste” bias of each of our testers. There also appears to be be discrepancies in the variance across recipes which is something that we will analyze further in our Anova's below.
+
+### ANOVA - Sweetness
+
+```{r,echo = 'FALSE'}
+model_sweet <- aov(Sweetness~lemon_type*sugar_amount*lemon_amount + Tester,data=lemonadedf)
+
+model_sweet_aov <- anova(model_sweet)
+
+print(model_sweet_aov)
+qqnorm(lemonadedf$Sweetness)
+qqline(lemonadedf$Sweetness)
+
+
+```
+
+### ANOVA - Sourness
+```{r,echo = 'FALSE'}
+model_sour <- aov(Sourness~lemon_type*sugar_amount*lemon_amount + Tester,data=lemonadedf)
+
+model_sour_aov <- anova(model_sour)
+
+print(model_sour_aov)
+### plot(model_sour)
+```
+
+### ANOVA - Tastiness
+```{r,echo = 'FALSE'}
+model_taste <- aov(Tastiness~lemon_type*sugar_amount*lemon_amount + Tester,data=lemonadedf)
+
+model_taste_aov <- anova(model_taste)
+
+print(model_taste_aov)
+### plot(model_taste)
+```
+
+### Block Variance
+```{r,echo = 'FALSE'}
+lemonadedf%>%ggplot(aes(x = Tester,y = Tastiness)) +geom_boxplot()+ geom_point(aes(color = lemon_type))+ggtitle("Tastiness")
+lemonadedf%>%ggplot(aes(x = Tester,y = Sweetness)) +geom_boxplot()+ geom_point(aes(color = lemon_type))+ggtitle("Sweetness")
+lemonadedf%>%ggplot(aes(x = Tester,y = Sourness)) +geom_boxplot()+ geom_point(aes(color = lemon_type))+ggtitle("Sourness")
+```
+# Discussion of ANOVA results
+
+As our plot of Sourness by block indicates, the variance across tester may not be consistent for this ANOVA test (although it does seem to be consistent for the Sweetness and Tastiness tests). This violates one of the major assumptions that we need to make to draw inferences from this model. Because the block with higher variance also has the lowest values, a logarithmic transformation is unlikely to fix the problem. We attempted to fix this problem below, but for now we will continue our discussion of this data while acknowledging that this violation may affect our inferences.
+
+Our assumption of normality for the residuals has not been violated, as one can tell from our QQ-plot for sweetness. The data follows similar patterns for the other two measures, there is code in the appendix that can show this. Our residuals vs fitted values also do not follow any suspicious patterns, so we can safely assume normal distribution of our error terms.
+
+Each ANOVA test shows strong evidence for a block effect, which indicates that each taster has a different taste for lemonade. The only other statistically significant hypothesis is the effect of the amount of lemon on Sourness score. This indicates, not surprisingly, that the amount of lemon juice has an effect on the tasters' perception of a recipe's sourness.
+
+
+
+# Variance regularized Sourness results
+
+Seeing as our equal variance across blocks assumption has been violated, we attempted to account for this by changing our scale from 1-20 to 20-1 and taking the log of the values. This transformation fixed the issue with our assumption, but we would need to do more advanced and involved testing to know if this model remains valid after transformation. The transformation leaves us with an ANOVA that does not display the same 'lemon amount' effect that our base data showed. Therefore, we should be skeptical of the validity of this hypothesis.
+
+
+```{r,echo = 'FALSE'}
+lemon_log <- lemonadedf %>% 
+  mutate(log_sour = log(21-Sourness), log_sweet = log(21-Sweetness), log_taste = log(21-Tastiness), log_total = log((21-Sourness)+(21-Sweetness)+(21-Tastiness)))
+```
+
+
+### Sourness anova - block variance regularized
+```{r,echo = 'FALSE'}
+
+model <- aov(log_sour~lemon_type*sugar_amount*lemon_amount + Tester,data=lemon_log)
+lemon_log%>%ggplot(aes(x = Tester,y = log_sour)) +geom_boxplot()+ geom_point(aes(color = lemon_type))+ggtitle("Boxplot")
+
+model_aov <- anova(model)
+
+print(model_aov)
+qqnorm(lemon_log$log_sour)
+qqline(lemon_log$log_sour)
+
+```
+
+### Further Analysis of Tastiness Scores
+
+```{r,echo = 'FALSE'}
+
+lemonadedf$Tester <- as.numeric(lemonadedf$Tester)
+#coded/fitted
+d_coded <- lemonadedf %>%
+  mutate(lemon_type = ifelse(lemon_type == 'Concentrate', -1, 1),
+         sugar_amount = ifelse(sugar_amount != .5, -1, 1),
+         lemon_amount = ifelse(lemon_amount == .25, -1, 1))
+
+fit_coded <- lm(Tastiness~lemon_type * sugar_amount * lemon_amount+ Tester, d_coded)
+effects <- 2 * coef(fit_coded)[-1] # exclude intercept
+
+
+```
+
+
+```{r,echo = 'FALSE'}
+#QQ plot shows normality
+daniel_plot <- function(effects, p = c(0.3, 0.7)) { 
+  qq <- qqnorm(effects, datax = TRUE)
+  qqline(effects, col = "red", probs = p, datax = TRUE)
+  text(qq$x, qq$y, names(effects),cex=.5,offset=1,pos=4)
+}
+
+
+```
+
+Summary of Tastiness model:
+
+```{r,echo = 'FALSE'}
+#Fitting model from coded data
+
+m1<-lm(Tastiness~lemon_type * sugar_amount * lemon_amount+as.numeric(Tester), d_coded)
+
+summary(m1)
+
+```
+
+response surface plots:
+
+```{r,echo = 'FALSE'}
+#Response Surface plot (Shows interaction)
+juice_names<-list('Concentrate','Fresh')
+
+facet_labeller <- function(variable,value){
+  return(juice_names[value])
+}
+
+nd <- expand.grid(Tester= c(1,2,3),
+                  sugar_amount = seq(from = -1, to = 1, by = .1),
+                  lemon_type = c(1, 2),
+                  lemon_amount= seq(from = -1, to = 1, by = .1))
+
+nd$predTaste <- predict(m1, newdata = nd)
+
+
+ggplot(data = nd, aes(x = sugar_amount, y = lemon_amount, z = predTaste)) + facet_wrap(~lemon_type, labeller = facet_labeller) + geom_contour_filled()+
+  xlab("Sugar Amount (cups)")+
+  ylab("Amount of Lemon Juice (cups)")+
+  guides(fill=guide_legend(title="Tastiness Score"))
+
+
+```
+
+Discussion of surface response plots and the ideal cup of lemonade:
+
+The plot above which is derived from predictions of our model for Tastiness scores applied to a fitted/coded version of our original data table.The plot indicates that, when concentrate lemon juice was used, the testers are predicted to find the lemonade most tasty when the values of sugar and lemon juice are both high (with 1/2 cup of lemon juice and 1/2 cup of sugar). When freshly squeezed lemon juice was used, the plot predicts that testers will score the recipe more highly if high amounts of lemon juice and low amounts of sugar are used (with 1/2 cup of lemon juice and 1/3 cup of sugar). With both concentrate and fresh lemon juice, recipes with high sugar amounts(1/2 cup) and low amounts of lemon(1/4) are predicted to have the lowest tester scores. The ideal predicted cup would include fresh lemon juice as its plot reaches the higher predicted scores (up to 14.5-15) than the concentrate plot. Then, to get the highest predicted tastiness scores of the Fresh contour plot, the ideal lemon juice amount would be ~1/2 cup and the sugar amount would be 1/3 cups. While the plot does provide interesting insights, as shown above, the model fails to provide a significant fit for the data, so these observations are not statistically significant. 
+
+The most tasty cup of lemonade would include:
+
+-freshly squeezed lemon juice
+
+-1/3 cup of sugar
+
+-1/2 cup of lemon juice
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
